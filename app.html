@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">
+  <title>Setup your ceiborg!</title>
+  <style>
+    body{
+      text-align: center;
+      background: #111;
+      font-family: monospace;
+    }
+    section{
+      width: 80%;
+      margin: 10vh auto;
+    }
+    body h1{
+      color: white;
+      margin-bottom: 5vh;
+    }
+    a{
+      color: white;
+      text-decoration: underline;
+      font-size: 2vh;
+    }
+    p{
+      color: white;
+      font-size: 2vh;
+      text-align: center;
+
+    }
+    h1,input,select{
+      width: 100%;
+      box-sizing: content-box;
+      line-height: 5vh;
+      font-size: 5vh;
+      padding: 1vh;
+      margin-bottom: 2vh;
+      font-family: inherit;
+    }
+  </style>
+</head>
+
+<body>
+  <section id="app">
+    <h1>Setup your ceiborg!</h1>
+    <select id="ssid"></select>
+    <input type="password" placeholder="Password" id="pwd" />
+    <input type="submit" value="Setup" onclick="setup()" />
+  </section>
+  <script type="text/javascript">
+    let a = document.getElementById('app')
+    let s = document.getElementById('ssid')
+    let p = document.getElementById('pwd')
+
+    get("/ssids", function(d) {
+      let i = 1
+      for (v of d) {
+        let o = new Option(v.ssid + ' _ _ _ (' + v.quality + '%)')
+        o.value = i++
+        s.add(o)
+      }
+    });
+
+    status() //check status periodically
+
+    function setup() {
+      let d = {
+        ssid: s.value,
+        pwd: p.value
+      }
+      post("/setup", d);
+      timeout = 10
+      connecting()
+    }
+
+    let timeout
+    let up = 0
+
+    function connecting() {
+      a.innerHTML = '<h1>Connecting...</h1>'
+      a.innerHTML += '<p>timout in ' + timeout + ' seconds...</p>'
+      if (timeout-- > 0){
+        if (up == 0)
+          setTimeout(connecting, 1000);
+        else
+          location.reload()
+      }
+      else{
+        location.reload()
+      }
+
+    }
+
+    function restart() {
+      get("/restart")
+      a.innerHTML = '<h1>Restarting</h1>'
+      a.innerHTML += '<p>if the connection is ok, this page will be unresponsive.</p>'
+      a.innerHTML += '<br /><br /><p>enjoy your ceiborg!</p>'
+      return false
+    }
+
+    function forget() {
+      if (confirm('Forget network credentials?')) {
+        get("/forget")
+        setTimeout(() => location.reload(), 5000);
+        a.innerHTML = '<h1>Forgetting!</h1>'
+        a.innerHTML += '<p>wait a moment...</p>'
+      }
+      return false
+    }
+
+    function status() {
+      get("/status", function(d) {
+        if (d.up) {
+          up = 1
+          a.innerHTML = '<h1>Connected!</h1>'
+          a.innerHTML += '<p>ceiborg connected to ' + d.ssid + '</p>'
+          a.innerHTML += '<p>its IP is ' + d.ip + '</p>'
+          a.innerHTML += '<p>You can now send OSC message to that IP on port 8000</p>'
+          a.innerHTML += '<br/><br/><br/><br/><p>You don need this webserver anymore. Save yourself some resources by <a href="/" onclick="return restart()">restarting the device</a>.<br/>(Remember to set the jumper properly.)</p>'
+          a.innerHTML += '<br/><br/><p>Or maybe you want to <a href="/" onclick="return forget()">forget the saved networks</a></p>'
+        } else {
+          setTimeout(status, 2000);
+        }
+      });
+    }
+
+    function get(u, cb) {
+      send(u, 'GET', null, cb)
+    }
+
+    function post(u, d, cb) {
+      send(u, 'POST', JSON.stringify(d), cb)
+    }
+
+    function send(url, method, data, cb) {
+      let r = new XMLHttpRequest()
+      r.responseType = 'json'
+      if (!!cb)
+        r.onload = function() {
+          cb(r.response)
+        }
+      r.open(method, url + '?_=' + new Date().getTime(), true)
+      r.send(data);
+    }
+  </script>
+</body>
+
+</html>
